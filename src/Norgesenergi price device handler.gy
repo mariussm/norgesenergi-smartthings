@@ -1,0 +1,64 @@
+/**
+ *  Very much inspired by Tibber app: https://github.com/tibbercom/tibber-smartthings-app/blob/master/src/Device%20handlers/tibber-price-device-handler.gy
+ *
+ *  Author: mariussm
+ *
+ *  Date: 2017-12-31
+ */
+metadata {
+	definition (name: "Norgesenergi price device handler", namespace: "Norgesenergi-smartthings", author: "mariussm") {
+		capability "Sensor"
+		attribute "price", "number"
+	}
+	// tile definitions
+	tiles() {
+            multiAttributeTile(name:"valueTile", type:"generic", width:6, height:4, backgroundColor:"#00a0dc") {
+                tileAttribute("device.price", key: "PRIMARY_CONTROL") {
+                    attributeState "price", label:'${currentValue}', defaultState: true
+                }
+                tileAttribute("device.currency", key: "SECONDARY_CONTROL") {
+                    attributeState "currency", label:'${currentValue}', defaultState: true
+                }
+            }
+			main (["valueTile"])
+	}
+}
+
+def initialize() {
+	log.debug("init")
+    getPrice()
+    schedule("0 * * * * ?", getPrice)
+}
+def installed() {
+	log.debug "Installed"
+    initialize()
+}
+def updated() {
+	log.debug "Updated"
+    initialize()
+}
+def getPrice() {
+	log.debug("getprice")
+	def params = [
+        uri: "https://www.norgesenergi.no/api/product/330/price/2384",
+        headers: ["Content-Type": "application/json;charset=UTF-8"]
+	]
+    try {
+        httpGet(params) { resp ->
+            log.debug "response contentType: ${resp.contentType} status: ${resp.status} data:${resp.data}"
+            if(resp.status == 200){
+                def price = resp.data.price
+                state.price = price
+                sendEvent(name: "price", value: state.price, unit: currency)
+            }
+        }
+    } catch (e) {
+        log.debug "something went wrong: $e"
+    }
+}
+def parse(String description) {
+    log.debug "parse description: ${description}"
+    def event1 = createEvent(name: "price", value: state.price, unit: state.currency)
+    log.debug "Parse returned ${description}"
+    return [event1]
+}
